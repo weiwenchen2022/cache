@@ -132,9 +132,9 @@ func (c *Cache[K, E]) loadReadOnly() readOnly[K, E] {
 	return readOnly[K, E]{}
 }
 
-// Load returns the value stored in the map for a key, or nil if no
+// Load returns the value stored in the cache for a key, or zero value if no
 // value is present.
-// The ok result indicates whether value was found in the map.
+// The ok result indicates whether value was found in the cache.
 func (c *Cache[K, E]) Load(key K) (value E, ok bool) {
 	read := c.loadReadOnly()
 	e, ok := read.m[key]
@@ -253,7 +253,7 @@ func (c *Cache[K, E]) LoadOrStore(key K, value E) (actual E, loaded bool) {
 			c.read.Store(&readOnly[K, E]{m: read.m, amended: true})
 		}
 
-		c.dirty[key] = newEntry[E](value)
+		c.dirty[key] = newEntry(value)
 		actual, loaded = value, false
 	}
 	c.mu.Unlock()
@@ -436,7 +436,7 @@ func (c *Cache[K, E]) Swap(key K, value E) (previous E, loaded bool) {
 			c.read.Store(&readOnly[K, E]{m: read.m, amended: true})
 		}
 
-		c.dirty[key] = newEntry[E](value)
+		c.dirty[key] = newEntry(value)
 	}
 	c.mu.Unlock()
 
@@ -489,8 +489,7 @@ func (c *ComparableCache[K, E]) Swap(key K, value E) (previous E, loaded bool) {
 }
 
 // CompareAndSwap swaps the old and new values for key
-// if the value stored in the map is equal to old.
-// The old value must be of a comparable type.
+// if the value stored in the cache is equal to old.
 func (c *ComparableCache[K, E]) CompareAndSwap(key K, old, new E) bool {
 	read := c.loadReadOnly()
 	if e, ok := read.m[key]; ok {
@@ -521,10 +520,9 @@ func (c *ComparableCache[K, E]) CompareAndSwap(key K, old, new E) bool {
 }
 
 // CompareAndDelete deletes the entry for key if its value is equal to old.
-// The old value must be of a comparable type.
 //
-// If there is no current value for key in the map, CompareAndDelete
-// returns false (even if the old value is the nil interface value).
+// If there is no current value for key in the cache, CompareAndDelete
+// returns false.
 func (c *ComparableCache[K, E]) CompareAndDelete(key K, old E) (deleted bool) {
 	read := c.loadReadOnly()
 	e, ok := read.m[key]
@@ -560,16 +558,16 @@ func (c *ComparableCache[K, E]) CompareAndDelete(key K, old E) (deleted bool) {
 	return false
 }
 
-// Range calls f sequentially for each key and value present in the map.
+// Range calls f sequentially for each key and value present in the cache.
 // If f returns false, range stops the iteration.
 //
-// Range does not necessarily correspond to any consistent snapshot of the Map's
+// Range does not necessarily correspond to any consistent snapshot of the Cache's
 // contents: no key will be visited more than once, but if the value for any key
 // is stored or deleted concurrently (including by f), Range may reflect any
 // mapping for that key from any point during the Range call. Range does not
-// block other methods on the receiver; even f itself may call any method on m.
+// block other methods on the receiver; even f itself may call any method on c.
 //
-// Range may be O(N) with the number of elements in the map even if f returns
+// Range may be O(N) with the number of elements in the cache even if f returns
 // false after a constant number of calls.
 func (c *Cache[K, E]) Range(f func(key K, value E) bool) {
 	// We need to be able to iterate over all of the keys that were already
